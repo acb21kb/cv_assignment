@@ -20,7 +20,7 @@ class GUI:
         self.root.maxsize(1200,800)
 
         self.img = 'cv_assignment/images/dashboard.png'
-        self.watermark = 'cv_assignment/watermarks/watermark_1.png'
+        self.watermark = 'cv_assignment/watermarks/watermark_5x5.png'
         
     def file_select(self, is_watermark: bool = False):
         ftypes = (('PNG files', '*.png',),
@@ -37,40 +37,70 @@ class GUI:
         else:
             self.img = file
 
-    def run_embed(img: str, watermark):
-        kp_img = embed.get_kp(img)
+    def run_embed(self):
+        """
+        Embed watermark into image
+        """
+        embed.process_watermark(self.watermark, self.img)
         # ^^^ use keypoints with watermark! -> LSB
 
-    def run_recover(img:str):
-        # ^^^ recover watermark from image
+    def run_recover(self, img:str):
+        """
+        Recover watermark from image
+        """
         return
 
-    def check_tamper(img: str):
-        # ^^^ check if image was tampered with
+    def check_tamper(self, img: str):
+        """
+        Check if image was tampered with
+        """
         # -> crop, resize, rotate
         return
 
     def main_page(self):
+        """
+        Set up main page
+        """
+        frame_l = tk.Label(self.root, bg='gray')
+        frame_l.grid(row=0, column=0)
+
         ex_img = ImageTk.PhotoImage(Image.open(self.img))
-        display_img = tk.Label(self.root, image=ex_img)
+        display_img = tk.Label(frame_l, image=ex_img)
         display_img.image = ex_img
         display_img.pack()
         
         ex_watermark = ImageTk.PhotoImage(Image.open(self.watermark).resize((30,30)))
-        display_watermark = tk.Label(self.root, image=ex_watermark)
+        display_watermark = tk.Label(frame_l, image=ex_watermark)
         display_watermark.image = ex_watermark
         display_watermark.pack()
 
-        # ^^^ Set these to update when new images chosen
+        # ^^^ Set these to update when new images chosen!
 
-        open_img = ttk.Button(self.root, text='Select image',
+        frame_m = tk.Label(self.root)
+        frame_m.grid(row=0, column=1)
+
+        open_img = ttk.Button(frame_m, text='Select image',
                     command= self.file_select)
-        open_watermark = ttk.Button(self.root, text='Select watermark',
-                    command=lambda: self.file_select(True))
         open_img.pack()
+
+        open_watermark = ttk.Button(frame_m, text='Select watermark',
+                    command=lambda: self.file_select(True))
         open_watermark.pack()
 
-gui = GUI()
-gui.main_page()
+        frame_r = tk.Label(self.root, bg='red')
+        frame_r.grid(row=0, column=2)
 
-gui.root.mainloop()
+        embed_watermark = ttk.Button(frame_r, text='Run embed watermark',
+                    command=self.run_embed)
+        embed_watermark.pack()
+
+        for row in range(1):
+            self.root.grid_rowconfigure(row, weight=1)
+        for col in range(3):
+            self.root.grid_columnconfigure(col, weight=1)
+
+if __name__ == "__main__":
+    gui = GUI()
+    gui.main_page()
+
+    gui.root.mainloop()
