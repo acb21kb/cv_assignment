@@ -2,8 +2,6 @@ import random
 import numpy as np
 import cv2
 
-# Number of keypoints to select
-N = 100
 
 def embed_watermark(wm_name: str, img_name: str) -> str:
     """
@@ -32,14 +30,14 @@ def embed_watermark(wm_name: str, img_name: str) -> str:
 
 def get_kp(img) -> tuple[list,list]:
     """
-    Return N  keypoints from image based on highest response.
+    Return N keypoints from image based on highest response.
     """
     # Import carrier image
     grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Detect keypoints (and feature descriptions) in image
     sift = cv2.SIFT_create()
-    sift.setContrastThreshold(0.1)
+    # sift.setContrastThreshold(0.1)
     kp, desc = sift.detectAndCompute(grey, None)
 
     # Get unique keypoints
@@ -50,7 +48,6 @@ def get_kp(img) -> tuple[list,list]:
     for k in range(len(kp)):
         if kp_pts.__contains__(kp[k].pt):
             kp_pts.remove(kp[k].pt)
-            print(kp[k].size)
             unique_kp.append(kp[k])
             unique_desc.append(desc[k])
 
@@ -60,8 +57,9 @@ def get_kp(img) -> tuple[list,list]:
     sort_list = sorted(kp_list, key=lambda kp_list: kp_list[0], reverse=True)
 
     # Returns N keypoints and feature descriptions based on keypoint response
-    kp = [s[1] for s in sort_list[:N]]
-    desc = [s[2] for s in sort_list[:N]]
+    kp = [s[1] for s in sort_list]
+    desc = [s[2] for s in sort_list]
+    print(len(kp))
     return kp, desc
 
 def watermark_kp(img, kp, watermark, size, version: bool):
@@ -91,7 +89,7 @@ def get_kp_crop(img, kp, size) -> tuple[int,int,int,int]:
     Crop the image around keypoint the size of the watermark.
     """
     # Get keypoint coords as integers
-    x_, y_ = kp.pt
+    y_, x_ = kp.pt
 
     # Get image bounds
     max_x, max_y = img.shape[:2]
