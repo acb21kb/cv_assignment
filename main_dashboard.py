@@ -97,11 +97,40 @@ class GUI:
         display_res.image = res_img
         display_res.update()
 
-    def run_recover(self, img:str):
+    def select_recover(self, display_recover: tk.Label, is_auth: tk.Label):
+        """
+        Select file to recover a watermark from.
+        """
+        ftypes = (('PNG files', '*.png',),
+                  ('JPEG files', '*.jpg'))
+        path = PATH + '/embedded'
+
+        file = openfile.askopenfilename(title='Select an image to recover',
+                    initialdir=path, filetypes=ftypes)
+        self.run_recover(display_recover, is_auth, file)
+
+    def run_recover(self, display_recover: tk.Label, is_auth:tk.Label, img:str):
         """
         Recover watermark from image.
         """
-        return
+        recovered_wm = recover.recover_watermark(img)
+
+        if recovered_wm is not None:
+            recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
+
+            display_recover.configure(image=recovered)
+            display_recover.image = recovered
+            display_recover.update()
+            text = "Consistent watermark found! This image is authenticated."
+        else:
+            display_recover.configure(image=None)
+            display_recover.image = None
+            display_recover.update()
+            text = "Watermark not authenticated."
+
+        is_auth.configure(text=text)
+        is_auth.text = text
+        is_auth.update()
 
     def check_tamper(self, img: str):
         """
@@ -150,7 +179,11 @@ class GUI:
         frame_r.grid(row=0, column=2)
 
         display_res = tk.Label(frame_r)
-        display_res.pack()
+        display_res.grid(row=0, column=0)
+        display_recover = tk.Label(frame_r)
+        display_recover.grid(row=1, column=0)
+        is_auth = tk.Label(frame_r)
+        is_auth.grid(row=2, column=0)
 
         # Middle frame for image selection buttons
         frame_m = tk.Label(main_frame)
@@ -164,7 +197,12 @@ class GUI:
         display_drastic = tk.Checkbutton(frame_m, text='Display with visible changes?',
                     variable=do_drastic)
         display_drastic.grid(row=1, column=0)
-    
+
+        recover_img = ttk.Button(frame_m, text='Run recover watermark',
+                    command=lambda: self.select_recover(display_recover, is_auth))
+        recover_img.grid(row=3, column=0)
+        
+
         # Set up grid layout of frame
         for row in range(1):
             main_frame.grid_rowconfigure(row, weight=1)
