@@ -1,3 +1,4 @@
+import csv
 import cv2
 import numpy as np
 import os
@@ -12,7 +13,6 @@ def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
     # Process watermark into single bits (0 or 1)
     img = cv2.imread(wm_name)
     watermark = np.array([[1 if np.sum(i) < 255 else 0 for i in j] for j in img])
-    watermark_drastic = np.array([[50 if np.sum(i) < 255 else 0 for i in j] for j in img])
 
     # All watermarks have same height and width
     wm_size = np.floor(len(watermark)/2)
@@ -26,6 +26,7 @@ def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
 
     # Set result image filepaths
     result, result_drastic = get_img_name(img_name)
+    store_in_csv(result, wm_name)
     
     # Embed watermark at each keypoint
     for k in range(len(kp)):
@@ -33,6 +34,7 @@ def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
 
     cv2.imwrite(result, carrier_img)
     if display_drastic == 1:
+        watermark_drastic = np.array([[50 if np.sum(i) < 255 else 0 for i in j] for j in img])
         show_img = carrier_img.copy()
         for k in range(len(kp)):
             show_img = watermark_kp(show_img, kp[k], watermark_drastic, wm_size, version)
@@ -64,15 +66,14 @@ def get_kp(img) -> tuple[list,list]:
             unique_desc.append(desc[k])
 
     # Returns keypoints and feature descriptions
-    print(len(unique_kp))
     return unique_kp, unique_desc
 
-def watermark_kp(img, kp, watermark, size, version: bool):
+def watermark_kp(img, kp, watermark, size: int, version: bool):
     """
     Embed watermark at given keypoint, either as addition to image
     or as subtraction from image.
     """
-    x1, x2, y1, y2 = get_kp_crop(img, kp, size)
+    x1, x2, y1, y2 = get_kp_crop(img.shape[0], img.shape[1], kp, size)
     carrier = img[x1:x2, y1:y2]
 
     # Change LSB for each black pixel in watermark
@@ -89,15 +90,13 @@ def watermark_kp(img, kp, watermark, size, version: bool):
     img[x1:x2, y1:y2] = carrier
     return img
 
-def get_kp_crop(img, kp, size) -> tuple[int,int,int,int]:
+def get_kp_crop(max_x: int, max_y: int, kp, size: int) -> tuple[int,int,int,int]:
     """
     Crop the image around keypoint the size of the watermark.
     """
     # Get keypoint coords as integers
     y_, x_ = kp.pt
 
-    # Get image bounds
-    max_x, max_y = img.shape[:2]
     # Get watermark width
     w = (size * 2) + 1
    
@@ -119,7 +118,7 @@ def get_kp_crop(img, kp, size) -> tuple[int,int,int,int]:
 
     return x1, x2, y1, y2
 
-def get_img_name(img_name: str):
+def get_img_name(img_name: str) -> tuple[str, str]:
     """
     Set filepaths to save resulting images at.
     """
@@ -133,11 +132,29 @@ def get_img_name(img_name: str):
     
     result = "cv_assignment/embedded/wm_img_"+name
     path = PATH.replace("\\", "/").replace("cv_assignment", "")
+    
     counter = 1
     while os.path.exists(path+result+".png"):
-        print(f"{result} - File exists")
         result = result.replace(str(counter-1), "")
         result += str(counter)
         counter += 1
 
     return result+".png", result+"_drastic.png"
+
+def store_in_csv(img_name, watermark):
+    """
+    Store resulting image and watermark size used in csv file.
+    """
+    wm_size = get_watermark_size(watermark)
+    img = img_name.replace("cv_assignment/", "")
+    with open(PATH+"/watermarks/img_to_wm.csv", "a", newline="") as f:
+        w = csv.writer(f)
+        w.writerow([img, wm_size])
+
+def get_watermark_size(wm_file: str):
+    """
+    Return size of watermark given the filename.
+    """
+    wm = wm_file.split("watermark_")
+    wm = wm[1].split(".")
+    return wm[0]
