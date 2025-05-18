@@ -14,7 +14,7 @@ PATH = os.path.dirname(os.path.realpath(__file__))
 class GUI:
     def __init__(self):
         """
-        Initialise class
+        Initialise class.
         """
         self.root = tk.Tk()
         self.root.title("Watermark Tool")
@@ -26,7 +26,7 @@ class GUI:
         
     def file_select(self, update_img: tk.Label):
         """
-        Allow user to select image files to be used and updates images
+        Allow user to select image files to be used and updates images.
         """
         ftypes = (('PNG files', '*.png',),
                   ('JPEG files', '*.jpg'))
@@ -45,6 +45,9 @@ class GUI:
         update_img.update()
 
     def watermark_select(self, update_img: tk.Label, i: int):
+        """
+        Update watermark to be used.
+        """
         img, file = self.get_watermark(i)
         self.watermark = file
 
@@ -53,6 +56,9 @@ class GUI:
         update_img.update()
 
     def get_watermark(self, i: int):
+        """
+        Return watermark image.
+        """
         size = str(i)+'x'+str(i)
         file = PATH + '/watermarks/watermark_'+size+'.png'
         img = Image.open(file)
@@ -60,6 +66,9 @@ class GUI:
         return img, file
 
     def watermark_options(self, frame: tk.Label, update_frame: tk.Label, wm_opt: list[int], i: int):
+        """
+        Display all watermark options with buttons to select each.
+        """
         wm, _ = self.get_watermark(wm_opt[i])
         display_wm = tk.Label(frame, image=wm)
         display_wm.image = wm
@@ -68,37 +77,42 @@ class GUI:
                     command=lambda: self.watermark_select(update_frame, wm_opt[i]))    
         open_wm.grid(row=1, column=i)
 
-    def run_embed(self, display_res: tk.Label):
+    def run_embed(self, display_res: tk.Label, drastic: int):
         """
         Embed watermark into image and display resulting image
+        (either actual result or with watermarks clearly visible).
         """
-        new_img = embed.embed_watermark(self.watermark, self.img)
+        new_img, drastic_img = embed.embed_watermark(self.watermark, self.img, drastic)
 
-        res_img = Image.open(new_img)
+        if drastic == 0:
+            res_img = Image.open(new_img)
+        else:
+            res_img = Image.open(drastic_img)
+
         w, h = res_img.size
         w = int((w/h) * 400)
         res_img = ImageTk.PhotoImage(res_img.resize((w,400)))
-
+      
         display_res.configure(image=res_img)
         display_res.image = res_img
         display_res.update()
 
     def run_recover(self, img:str):
         """
-        Recover watermark from image
+        Recover watermark from image.
         """
         return
 
     def check_tamper(self, img: str):
         """
-        Check if image was tampered with
+        Check if image was tampered with.
         """
         # -> crop, resize, rotate
         return
 
     def main_page(self):
         """
-        Set up main page
+        Set up main page.
         """
         main_frame = tk.Frame(self.root)
 
@@ -126,6 +140,7 @@ class GUI:
         # Display the watermark options
         frame_l2 = tk.Label(main_frame)
         frame_l2.grid(row=1, column=0)
+        
         wm_options = [3, 5, 7, 9]
         for i in range(len(wm_options)):
             self.watermark_options(frame_l2, display_watermark, wm_options, i)
@@ -133,14 +148,22 @@ class GUI:
         # Right frame for displaying results
         frame_r = tk.Label(main_frame)
         frame_r.grid(row=0, column=2)
+
         display_res = tk.Label(frame_r)
+        display_res.pack()
 
         # Middle frame for image selection buttons
         frame_m = tk.Label(main_frame)
         frame_m.grid(row=0, column=1)
         
         embed_watermark = ttk.Button(frame_m, text='Run embed watermark',
-                    command=lambda: self.run_embed(display_res))
+                    command=lambda: self.run_embed(display_res, do_drastic.get()))
+        embed_watermark.grid(row=0, column=0)
+
+        do_drastic = tk.IntVar()
+        display_drastic = tk.Checkbutton(frame_m, text='Display with visible changes?',
+                    variable=do_drastic)
+        display_drastic.grid(row=1, column=0)
     
         # Set up grid layout of frame
         for row in range(1):
@@ -148,8 +171,6 @@ class GUI:
         for col in range(3):
             main_frame.grid_columnconfigure(col, weight=1)
         
-        embed_watermark.pack()
-        display_res.pack()
         main_frame.pack()
 
 if __name__ == "__main__":

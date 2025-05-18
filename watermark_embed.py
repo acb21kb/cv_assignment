@@ -1,15 +1,18 @@
-import random
-import numpy as np
 import cv2
+import numpy as np
+import os
+import random
 
+PATH = os.path.dirname(os.path.realpath(__file__))
 
-def embed_watermark(wm_name: str, img_name: str) -> str:
+def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
     """
     Implement embedding of watermark.
     """
     # Process watermark into single bits (0 or 1)
     img = cv2.imread(wm_name)
     watermark = np.array([[1 if np.sum(i) < 255 else 0 for i in j] for j in img])
+    watermark_drastic = np.array([[50 if np.sum(i) < 255 else 0 for i in j] for j in img])
 
     # All watermarks have same height and width
     wm_size = np.floor(len(watermark)/2)
@@ -21,16 +24,25 @@ def embed_watermark(wm_name: str, img_name: str) -> str:
     carrier_img = cv2.imread(img_name)
     kp, desc = get_kp(carrier_img)
 
+    # Set result image filepaths
+    result, result_drastic = get_img_name(img_name)
+    
     # Embed watermark at each keypoint
     for k in range(len(kp)):
         carrier_img = watermark_kp(carrier_img, kp[k], watermark, wm_size, version)
-    cv2.imwrite("cv_assignment/embedded/wm_img_.png", carrier_img)
 
-    return "cv_assignment/embedded/wm_img_.png"
+    cv2.imwrite(result, carrier_img)
+    if display_drastic == 1:
+        show_img = carrier_img.copy()
+        for k in range(len(kp)):
+            show_img = watermark_kp(show_img, kp[k], watermark_drastic, wm_size, version)
+        cv2.imwrite(result_drastic, show_img)
+
+    return result, result_drastic
 
 def get_kp(img) -> tuple[list,list]:
     """
-    Return N keypoints from image based on highest response.
+    Return unique keypoints from image.
     """
     # Import carrier image
     grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -51,16 +63,9 @@ def get_kp(img) -> tuple[list,list]:
             unique_kp.append(kp[k])
             unique_desc.append(desc[k])
 
-    # Sort list of keypoints and select highest N responses
-    kp_res = [k.response for k in unique_kp]
-    kp_list = [list(s) for s in zip(kp_res, unique_kp, unique_desc)]
-    sort_list = sorted(kp_list, key=lambda kp_list: kp_list[0], reverse=True)
-
-    # Returns N keypoints and feature descriptions based on keypoint response
-    kp = [s[1] for s in sort_list]
-    desc = [s[2] for s in sort_list]
-    print(len(kp))
-    return kp, desc
+    # Returns keypoints and feature descriptions
+    print(len(unique_kp))
+    return unique_kp, unique_desc
 
 def watermark_kp(img, kp, watermark, size, version: bool):
     """
@@ -113,3 +118,26 @@ def get_kp_crop(img, kp, size) -> tuple[int,int,int,int]:
     y2 = int(y_ + size + 1)
 
     return x1, x2, y1, y2
+
+def get_img_name(img_name: str):
+    """
+    Set filepaths to save resulting images at.
+    """
+    name = ""
+    if img_name.__contains__("seal"):
+        name = "seal"
+    elif img_name.__contains__('flower'):
+        name = "flower"
+    else:
+        name = "dashboard"
+    
+    result = "cv_assignment/embedded/wm_img_"+name
+    path = PATH.replace("\\", "/").replace("cv_assignment", "")
+    counter = 1
+    while os.path.exists(path+result+".png"):
+        print(f"{result} - File exists")
+        result = result.replace(str(counter-1), "")
+        result += str(counter)
+        counter += 1
+
+    return result+".png", result+"_drastic.png"
