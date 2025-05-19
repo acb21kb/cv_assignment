@@ -137,11 +137,24 @@ class GUI:
         is_auth.text = text
         is_auth.update()
 
+    def select_tamper(self):
+        """
+        Select file to detect tampering.
+        """
+        ftypes = (('PNG files', '*.png',),
+                  ('JPEG files', '*.jpg'))
+        path = PATH + '/tampered'
+
+        file = openfile.askopenfilename(title='Select an image to recover',
+                    initialdir=path, filetypes=ftypes)
+        self.check_tamper(file)
+
     def check_tamper(self, img: str):
         """
         Check if image was tampered with.
         """
         # -> crop, resize, rotate
+        detect.detect_tampering(img)
         return
 
     def main_page(self):
@@ -206,6 +219,10 @@ class GUI:
         recover_img = ttk.Button(frame_m, text='Run recover watermark',
                     command=lambda: self.select_recover(display_res, display_recover, is_auth))
         recover_img.grid(row=3, column=0)
+
+        check_tamper = ttk.Button(frame_m, text='Run tamper detection',
+                    command=self.select_tamper)
+        check_tamper.grid(row=4, column=0)
         
 
         # Set up grid layout of frame
