@@ -13,24 +13,29 @@ def recover_watermark(img_name: str) -> str | None:
     # Check all keypoints for changes in shape of watermark (watermark is unknown)
     img = cv2.imread(img_name)
     kp, desc = embed.get_kp(img)
-    
     og_kp, og_pts, og_desc, og_img = get_og_kp(img_name)
 
     all_diffs = []
+    found_wm = []
+
     shape = get_watermark_shape(img_name)
     keypoints = find_same_kp(kp, og_pts)
 
+    # For each keypoint in both testing image and original image, compare pixel alterations
     for index in keypoints:
         diff = compare_kp(img, og_img, kp[index[0]], og_kp[index[1]], shape)
         all_diffs.append(diff)
+        # Calculate how much the difference matches the watermark with the same shape
+        found_wm.append(int(found_watermark(diff, shape)))
 
+    # Take average recovered watermark
     recovery = np.mean(all_diffs, axis=0)
+    # Calculate average watermark similarity
+    recovery_match = np.mean(found_wm, axis=0)
 
-    clean_recovery = recovery.copy()
-    clean_recovery[clean_recovery>=127] = 255
-    clean_recovery[clean_recovery<127] = 0
-
-    if found_watermark(clean_recovery):
+    # Give leeway for watermark overlap
+    if recovery_match > 0.5:
+        recovery *= 255 # Will output inverted to original watermark
         save_at = save_recovered(img_name)
         cv2.imwrite(save_at, recovery)
         return save_at
@@ -77,12 +82,13 @@ def compare_kp(img, og_img, kp, og_kp, shape):
     x3, x4, y3, y4 = embed.get_kp_crop(og_img.shape[0], og_img.shape[1], og_kp, size)
     alter = img[x1:x2, y1:y2]
     original = og_img[x3:x4, y3:y4]
-    diff = alter - original
-    d = np.array(diff)
-    d[np.where(d!=0)] = 50
-    d[np.where(d==0)] = 255
-    d[np.where(d==50)] = 0
-    return d
+
+    diff = original - alter
+    # Checks in case watermark was negative
+    if (diff==[255,255,255]).any():
+        diff = alter - original
+    # Difference always returned as 1s and 0s
+    return diff
 
 def save_recovered(img_name: str) -> str:
     """
@@ -113,20 +119,43 @@ def get_watermark_shape(img_name: str) -> int:
     path = PATH.replace("\\", "/")
     img = img_name.replace(path+"/", "")
 
+    # Find corresponding watermark size stored in csv by image name
     df = pd.read_csv(PATH+"/watermarks/img_to_wm.csv")
     match = df[df['Image']==img]
     if not match.empty:
         shape = str(match['Size'].iloc[0])
         shape = shape.split("x")
         return int(shape[0])
-    else:
-        return 9
+    
+    # If image is not found in csv, return watermark as largest size (9x9) as default
+    return 9
 
-def found_watermark(recovered) -> bool:
+def found_watermark(recovered, size) -> bool:
+    """
+    Return True if recovered watermark matches the actual watermark for the given size.
+    """
     path = PATH+"/watermarks/watermark_"
-    for i in range(9,1,-2):
-        wm = cv2.imread(path+str(i)+"x"+str(i)+".png")
-        if np.array_equal(recovered, wm):
+    wm = cv2.imread(path+str(size)+"x"+str(size)+".png")
+    watermark = [[[1,1,1] if np.sum(i) < 255 else [0,0,0] for i in j] for j in wm]
+    # If recovered is a perfect match, return True
+    if np.array_equal(recovered, watermark):
+        return True
+    else:
+        # Give a percentage error for calculating watermark match due to potential overlaps
+        similarity = get_difference(recovered, watermark)
+        if similarity > 0.75:
             return True
+    # Otherwise, not a strong enough match to verify watermark and return False
     return False
-        
+
+def get_difference(r, wm):
+    """
+    Calculate percentage match of recovered watermark and actual watermark.
+    """
+    matches = 0
+    for i in range(r.shape[0]):
+        for j in range(r.shape[1]):
+            if np.array_equal(r[i][j], wm[i][j]):
+                matches += 1
+
+    return matches/(r.shape[0]*r.shape[1])

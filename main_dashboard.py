@@ -77,7 +77,7 @@ class GUI:
                     command=lambda: self.watermark_select(update_frame, wm_opt[i]))    
         open_wm.grid(row=1, column=i)
 
-    def run_embed(self, display_res: tk.Label, drastic: int):
+    def run_embed(self, display_res: tk.Label, display_recover: tk.Label, drastic: int):
         """
         Embed watermark into image and display resulting image
         (either actual result or with watermarks clearly visible).
@@ -92,12 +92,16 @@ class GUI:
         w, h = res_img.size
         w = int((w/h) * 400)
         res_img = ImageTk.PhotoImage(res_img.resize((w,400)))
-      
+
+        display_recover.configure(image=None)
+        display_recover.image = None
+        display_recover.update()
+
         display_res.configure(image=res_img)
         display_res.image = res_img
         display_res.update()
 
-    def select_recover(self, display_recover: tk.Label, is_auth: tk.Label):
+    def select_recover(self, display_res: tk.Label, display_recover: tk.Label, is_auth: tk.Label):
         """
         Select file to recover a watermark from.
         """
@@ -107,27 +111,28 @@ class GUI:
 
         file = openfile.askopenfilename(title='Select an image to recover',
                     initialdir=path, filetypes=ftypes)
-        self.run_recover(display_recover, is_auth, file)
+        self.run_recover(display_res, display_recover, is_auth, file)
 
-    def run_recover(self, display_recover: tk.Label, is_auth:tk.Label, img:str):
+    def run_recover(self, display_res: tk.Label, display_recover: tk.Label, is_auth:tk.Label, img:str):
         """
         Recover watermark from image.
         """
         recovered_wm = recover.recover_watermark(img)
 
-        if recovered_wm is not None:
-            recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
+        display_res.configure(image=None)
+        display_res.image = None
+        display_res.update()
 
-            display_recover.configure(image=recovered)
-            display_recover.image = recovered
-            display_recover.update()
-            text = "Consistent watermark found! This image is authenticated."
+        if recovered_wm is None:
+            recovered = None
+            text = "NO - Watermark could not be authenticated."
         else:
-            display_recover.configure(image=None)
-            display_recover.image = None
-            display_recover.update()
-            text = "Watermark not authenticated."
-
+            recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
+            text = "YES - Consistent watermark found! This image is authenticated."
+        
+        display_recover.configure(image=recovered)
+        display_recover.image = recovered
+        display_recover.update()
         is_auth.configure(text=text)
         is_auth.text = text
         is_auth.update()
@@ -190,7 +195,7 @@ class GUI:
         frame_m.grid(row=0, column=1)
         
         embed_watermark = ttk.Button(frame_m, text='Run embed watermark',
-                    command=lambda: self.run_embed(display_res, do_drastic.get()))
+                    command=lambda: self.run_embed(display_res, display_recover, do_drastic.get()))
         embed_watermark.grid(row=0, column=0)
 
         do_drastic = tk.IntVar()
@@ -199,7 +204,7 @@ class GUI:
         display_drastic.grid(row=1, column=0)
 
         recover_img = ttk.Button(frame_m, text='Run recover watermark',
-                    command=lambda: self.select_recover(display_recover, is_auth))
+                    command=lambda: self.select_recover(display_res, display_recover, is_auth))
         recover_img.grid(row=3, column=0)
         
 
