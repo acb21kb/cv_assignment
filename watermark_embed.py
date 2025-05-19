@@ -138,8 +138,9 @@ def get_img_name(img_name: str) -> tuple[str, str]:
         result = result.replace(str(counter-1), "")
         result += str(counter)
         counter += 1
-
-    return result+".png", result+"_drastic.png"
+    
+    drastic = result.replace("embedded", "drastic")
+    return result+".png", drastic+"_drastic.png"
 
 def store_in_csv(img_name, watermark):
     """
