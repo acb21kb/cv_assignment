@@ -34,12 +34,10 @@ class GUI:
 
         file = openfile.askopenfilename(title='Select an image',
                     initialdir=path, filetypes=ftypes)
-        img = Image.open(file)
-        w, h = img.size
-        w = int((w/h) * 400)
-        img = ImageTk.PhotoImage(img.resize((w,400)))
         self.img = file
 
+        img = Image.open(file)
+        img = self.resize(img)
         update_img.configure(image=img)
         update_img.image = img
         update_img.update()
@@ -51,6 +49,7 @@ class GUI:
         img, file = self.get_watermark(i)
         self.watermark = file
 
+        img = ImageTk.PhotoImage(img.resize((75,75)))
         update_img.configure(image=img)
         update_img.image = img
         update_img.update()
@@ -62,7 +61,6 @@ class GUI:
         size = str(i)+'x'+str(i)
         file = PATH + '/watermarks/watermark_'+size+'.png'
         img = Image.open(file)
-        img = ImageTk.PhotoImage(img.resize((50,50)))
         return img, file
 
     def watermark_options(self, frame: tk.Label, update_frame: tk.Label, wm_opt: list[int], i: int):
@@ -70,18 +68,26 @@ class GUI:
         Display all watermark options with buttons to select each.
         """
         wm, _ = self.get_watermark(wm_opt[i])
+        wm = ImageTk.PhotoImage(wm.resize((50,50)))
         display_wm = tk.Label(frame, image=wm)
         display_wm.image = wm
         display_wm.grid(row=0, column=i)
-        open_wm = ttk.Button(frame, text='Select watermark',
+        open_wm = ttk.Button(frame, text='Select '+str(wm_opt[i])+'x'+str(wm_opt[i])+' watermark',
                     command=lambda: self.watermark_select(update_frame, wm_opt[i]))    
         open_wm.grid(row=1, column=i)
 
-    def run_embed(self, display_res: tk.Label, display_recover: tk.Label, drastic: int):
+    def run_embed(self, display_res: tk.Label, is_auth: tk.Label, drastic: int):
         """
         Embed watermark into image and display resulting image
         (either actual result or with watermarks clearly visible).
         """
+        display_res.configure(image=None)
+        display_res.image = None
+        display_res.update()
+        is_auth.configure(text=None)
+        is_auth.text = None
+        is_auth.update()
+        
         new_img, drastic_img = embed.embed_watermark(self.watermark, self.img, drastic)
 
         if drastic == 0:
@@ -89,19 +95,13 @@ class GUI:
         else:
             res_img = Image.open(drastic_img)
 
-        w, h = res_img.size
-        w = int((w/h) * 400)
-        res_img = ImageTk.PhotoImage(res_img.resize((w,400)))
-
-        display_recover.configure(image=None)
-        display_recover.image = None
-        display_recover.update()
+        res_img = self.resize(res_img)
 
         display_res.configure(image=res_img)
         display_res.image = res_img
         display_res.update()
 
-    def select_recover(self, display_res: tk.Label, display_recover: tk.Label, is_auth: tk.Label):
+    def select_recover(self, display_res: tk.Label, is_auth: tk.Label):
         """
         Select file to recover a watermark from.
         """
@@ -111,51 +111,78 @@ class GUI:
 
         file = openfile.askopenfilename(title='Select an image to recover',
                     initialdir=path, filetypes=ftypes)
-        self.run_recover(display_res, display_recover, is_auth, file)
+        self.run_recover(display_res, is_auth, file)
 
-    def run_recover(self, display_res: tk.Label, display_recover: tk.Label, is_auth:tk.Label, img:str):
+    def run_recover(self, display_res: tk.Label, is_auth: tk.Label, img:str):
         """
         Recover watermark from image.
         """
-        recovered_wm = recover.recover_watermark(img)
-
         display_res.configure(image=None)
         display_res.image = None
         display_res.update()
+        is_auth.configure(text="")
+        is_auth.text = ""
+        is_auth.update()
 
-        if recovered_wm is None:
-            recovered = None
+        auth, recovered_wm, confidence = recover.recover_watermark(img)
+
+        if not auth:
             text = "NO - Watermark could not be authenticated."
         else:
             recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
-            text = "YES - Consistent watermark found! This image is authenticated."
-        
-        display_recover.configure(image=recovered)
-        display_recover.image = recovered
-        display_recover.update()
+            if confidence < 0.6:
+                extra = " mostly "
+            else:
+                extra = " "
+            confidence = str(np.round(confidence*100, 1))
+            text = "YES - Consistent watermark found!\nThis image is"+extra+"authenticated with "+confidence+"% confidence"
+            display_res.configure(image=recovered)
+            display_res.image = recovered
+            display_res.update()
+
         is_auth.configure(text=text)
         is_auth.text = text
         is_auth.update()
 
-    def select_tamper(self):
+    def select_tamper(self, is_auth: tk.Label):
         """
         Select file to detect tampering.
         """
         ftypes = (('PNG files', '*.png',),
                   ('JPEG files', '*.jpg'))
         path = PATH + '/tampered'
+        path2 = PATH + '/embedded'
 
         file = openfile.askopenfilename(title='Select an image to recover',
                     initialdir=path, filetypes=ftypes)
-        self.check_tamper(file)
+        file2 = openfile.askopenfilename(title='Select original of image',
+                    initialdir=path2, filetypes=ftypes)
+        self.check_tamper(is_auth, file, file2)
 
-    def check_tamper(self, img: str):
+    def check_tamper(self, is_auth: tk.Label, img: str, og_img:str):
         """
         Check if image was tampered with.
         """
-        # -> crop, resize, rotate
-        detect.detect_tampering(img)
+        tampered = detect.detect_tampering(img, og_img)
+
+        if tampered:
+            text = "YES - Tampering probable. Watermark could not be authenticated."
+        else:
+            # recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
+            text = "NO - Tampering unlikely. Watermark appears consistent."
+        
+        # display_recover.configure(image=recovered)
+        # display_recover.image = recovered
+        # display_recover.update()
+        is_auth.configure(text=text)
+        is_auth.text = text
+        is_auth.update()
         return
+
+    def resize(self, img):
+        w, h = img.size
+        h = int((h/w) * 400)
+        return ImageTk.PhotoImage(img.resize((400,h)))
 
     def main_page(self):
         """
@@ -163,72 +190,80 @@ class GUI:
         """
         main_frame = tk.Frame(self.root)
 
-        # Left frame for displaying current image and watermark
-        frame_l = tk.Label(main_frame, bg='gray')
-        frame_l.grid(row=0, column=0)
+        framerows = 1
+        framecols = 3
 
+        # Left frame for displaying current image and watermark
+        frame_l = tk.Frame(main_frame)
+        frame_l.pack_propagate(0)
+        frame_l.grid(row=0, column=0, rowspan=framerows)
+
+        embed_title = tk.Label(frame_l, text="Current image to embed:",
+                               font=("Helvetica",12,"bold"))
+        embed_title.grid(row=0, column=0)
+        
         ex_img = Image.open(self.img)
-        w, h = ex_img.size
-        w = int((w/h) * 400)
-        ex_img = ImageTk.PhotoImage(ex_img.resize((w,400)))
+        ex_img = self.resize(ex_img)
         display_img = tk.Label(frame_l, image=ex_img)
         display_img.image = ex_img
-        display_img.grid(row=0, column=0)
+        display_img.grid(row=1, column=0, pady=5)
 
-        open_img = ttk.Button(frame_l, text='Select image',
+        open_img = ttk.Button(frame_l, text='Select image to watermark',
                     command=lambda: self.file_select(display_img))
-        open_img.grid(row=1, column=0)
+        open_img.grid(row=2, column=0, pady=(1,15))
         
-        ex_watermark = ImageTk.PhotoImage(Image.open(self.watermark).resize((50,50)))
-        display_watermark = tk.Label(frame_l, image=ex_watermark)
+        embed_title2 = tk.Label(frame_l, text="Current watermark to embed:",
+                                font=("Helvetica",12,"bold"))
+        embed_title2.grid(row=3, column=0)
+        
+        ex_watermark = ImageTk.PhotoImage(Image.open(self.watermark).resize((75,75)))
+        display_watermark = tk.Label(frame_l, image=ex_watermark, bg='thistle')
         display_watermark.image = ex_watermark
-        display_watermark.grid(row=2, column=0)
+        display_watermark.grid(row=4, column=0, pady=5)
 
         # Display the watermark options
-        frame_l2 = tk.Label(main_frame)
-        frame_l2.grid(row=1, column=0)
+        frame_l2 = tk.Frame(frame_l, bg='thistle')
+        frame_l2.grid(row=5, column=0, pady=(10,1))
         
         wm_options = [3, 5, 7, 9]
         for i in range(len(wm_options)):
             self.watermark_options(frame_l2, display_watermark, wm_options, i)
 
         # Right frame for displaying results
-        frame_r = tk.Label(main_frame)
+        frame_r = tk.Frame(main_frame)
         frame_r.grid(row=0, column=2)
 
-        display_res = tk.Label(frame_r)
-        display_res.grid(row=0, column=0)
-        display_recover = tk.Label(frame_r)
-        display_recover.grid(row=1, column=0)
+        display_result = tk.Label(frame_r)
+        display_result.grid(row=0, column=0)
         is_auth = tk.Label(frame_r)
-        is_auth.grid(row=2, column=0)
+        is_auth.grid(row=1, column=0)
 
         # Middle frame for image selection buttons
-        frame_m = tk.Label(main_frame)
+        frame_m = tk.Frame(main_frame)
         frame_m.grid(row=0, column=1)
         
         embed_watermark = ttk.Button(frame_m, text='Run embed watermark',
-                    command=lambda: self.run_embed(display_res, display_recover, do_drastic.get()))
+                    command=lambda: self.run_embed(display_result, is_auth, do_drastic.get()))
         embed_watermark.grid(row=0, column=0)
 
         do_drastic = tk.IntVar()
         display_drastic = tk.Checkbutton(frame_m, text='Display with visible changes?',
                     variable=do_drastic)
-        display_drastic.grid(row=1, column=0)
+        display_drastic.grid(row=1, column=0, pady=(1,10))
 
         recover_img = ttk.Button(frame_m, text='Run recover watermark',
-                    command=lambda: self.select_recover(display_res, display_recover, is_auth))
+                    command=lambda: self.select_recover(display_result, is_auth))
         recover_img.grid(row=3, column=0)
 
         check_tamper = ttk.Button(frame_m, text='Run tamper detection',
-                    command=self.select_tamper)
-        check_tamper.grid(row=4, column=0)
+                    command=lambda: self.select_tamper(is_auth))
+        check_tamper.grid(row=4, column=0, pady=10)
         
 
         # Set up grid layout of frame
-        for row in range(1):
+        for row in range(framerows):
             main_frame.grid_rowconfigure(row, weight=1)
-        for col in range(3):
+        for col in range(framecols):
             main_frame.grid_columnconfigure(col, weight=1)
         
         main_frame.pack()
