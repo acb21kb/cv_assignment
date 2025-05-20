@@ -84,8 +84,8 @@ class GUI:
         display_res.configure(image=None)
         display_res.image = None
         display_res.update()
-        is_auth.configure(text=None)
-        is_auth.text = None
+        is_auth.configure(text="")
+        is_auth.text = ""
         is_auth.update()
         
         new_img, drastic_img = embed.embed_watermark(self.watermark, self.img, drastic)
@@ -111,6 +111,11 @@ class GUI:
 
         file = openfile.askopenfilename(title='Select an image to recover',
                     initialdir=path, filetypes=ftypes)
+        
+        is_auth.configure(text="")
+        is_auth.text = ""
+        is_auth.update()
+
         self.run_recover(display_res, is_auth, file)
 
     def run_recover(self, display_res: tk.Label, is_auth: tk.Label, img:str):
@@ -120,9 +125,6 @@ class GUI:
         display_res.configure(image=None)
         display_res.image = None
         display_res.update()
-        is_auth.configure(text="")
-        is_auth.text = ""
-        is_auth.update()
 
         auth, recovered_wm, confidence = recover.recover_watermark(img)
 
@@ -131,11 +133,11 @@ class GUI:
         else:
             recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
             if confidence < 0.6:
-                extra = " mostly "
+                extra = "MAYBE - Watermark detected inconsistently.\n Watermark found with only "
             else:
-                extra = " "
+                extra = "YES - Consistent watermark found!\nThis image is authenticated with "
             confidence = str(np.round(confidence*100, 1))
-            text = "YES - Consistent watermark found!\nThis image is"+extra+"authenticated with "+confidence+"% confidence"
+            text = extra+confidence+"% confidence"
             display_res.configure(image=recovered)
             display_res.image = recovered
             display_res.update()
@@ -170,9 +172,9 @@ class GUI:
             display_res.configure(image=result)
             display_res.image = result
             display_res.update()
-            text = "YES - Tampering probable. Watermark could not be authenticated."
+            text = "YES - Tampering is probable. Watermarked keypoints could not be authenticated."
         else:
-            text = "NO - Tampering unlikely. Watermark appears consistent."
+            text = "NO - Tampering is unlikely. Watermarked keypoints appear consistent."
             
         is_auth.configure(text=text)
         is_auth.text = text

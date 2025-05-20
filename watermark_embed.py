@@ -30,7 +30,7 @@ def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
     
     # Embed watermark at each keypoint
     for k in range(len(kp)):
-        carrier_img = watermark_kp(carrier_img, kp[k], watermark, wm_size, version)
+        carrier_img = watermark_lsb(carrier_img, kp[k], watermark, wm_size, version)
 
     cv2.imwrite(result, carrier_img)
     if display_drastic == 1:
@@ -86,6 +86,28 @@ def watermark_kp(img, kp, watermark, size: int, version: bool):
                 else:
                     # Check that value never decreases past 0
                     carrier[i][j][n] = max(carrier[i][j][n]-watermark[i][j], 0)
+
+    img[x1:x2, y1:y2] = carrier
+    return img
+
+def watermark_lsb(img, kp, watermark, size: int, version: bool):
+    """
+    Embed watermark at given keypoint, either as addition to image
+    or as subtraction from image.
+    """
+    x1, x2, y1, y2 = get_kp_crop(img.shape[0], img.shape[1], kp, size)
+    carrier = img[x1:x2, y1:y2]
+
+    # Change LSB for each black pixel in watermark
+    for i in range(carrier.shape[0]):
+        for j in range(carrier.shape[1]):
+            for n in range(carrier.shape[2]):
+                if version:
+                    # Set least siginificant bit as corresponding watermark value
+                    carrier[i][j][n] = (carrier[i][j][n] & 0b11111110) | (watermark[i][j] & 0b00000001)
+                else:
+                    # Set least siginificant bit as corresponding inverted watermark value
+                    carrier[i][j][n] = (carrier[i][j][n] & 0b11111110) | ((1 -watermark[i][j]) & 0b00000001)
 
     img[x1:x2, y1:y2] = carrier
     return img

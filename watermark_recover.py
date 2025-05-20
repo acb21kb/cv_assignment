@@ -35,10 +35,10 @@ def recover_watermark(img_name: str, return_img: bool = True):
     # Take average recovered watermark
     recovery = np.mean(all_diffs, axis=0)
     # Calculate average watermark similarity
-    recovery_match = np.mean(found_wm, axis=0)
-
+    recovery_match = np.mean(found_wm)
+    
     # Give leeway for watermark overlap
-    if recovery_match > 0.5:        
+    if recovery_match > 0.25:        
         recovery *= 255 # Will output inverted to original watermark
         if return_img:
             save_at = save_recovered(img_name)
@@ -80,11 +80,12 @@ def compare_kp(img, og_img, kp, og_kp, shape):
     alter = img[x1:x2, y1:y2]
     original = og_img[x3:x4, y3:y4]
 
-    diff = original - alter
-    # Checks in case watermark was negative
-    if (diff==[255,255,255]).any():
-        diff = alter - original
-    # Difference always returned as 1s and 0s
+    diff = np.zeros_like(alter)
+    for i in range(alter.shape[0]):
+        for j in range(alter.shape[1]):
+            for n in range(alter.shape[2]):
+                # Gets least significatn bit back from altered image
+                diff[i][j][n] = alter[i][j][n] & 0b00000001
     return diff
 
 def save_recovered(img_name: str) -> str:
@@ -144,25 +145,30 @@ def found_watermark(recovered, size) -> bool:
     path = PATH+"/watermarks/watermark_"
     wm = cv2.imread(path+str(size)+"x"+str(size)+".png")
     watermark = [[[1,1,1] if np.sum(i) < 255 else [0,0,0] for i in j] for j in wm]
+    inverted_watermark = [[[0,0,0] if np.sum(i) < 255 else [1,1,1] for i in j] for j in wm]
+    
     # If recovered is a perfect match, return True
-    if np.array_equal(recovered, watermark):
-        return True
+    if np.array_equal(recovered, watermark) or np.array_equal(recovered, inverted_watermark):
+        return 1
     else:
         # Give a percentage error for calculating watermark match due to potential overlaps
-        similarity = get_difference(recovered, watermark)
-        if similarity > 0.75:
-            return True
-    # Otherwise, not a strong enough match to verify watermark and return False
-    return False
+        # Otherwise, not a strong enough match to verify watermark
+        similarity = get_diff(recovered, watermark)
+        similarity_inv = get_diff(recovered, inverted_watermark)
+        if similarity > similarity_inv:
+            return similarity
+        else:
+            return similarity_inv
 
-def get_difference(r, wm):
+def get_diff(r, wm):
     """
     Calculate percentage match of recovered watermark and actual watermark.
     """
     matches = 0
     for i in range(r.shape[0]):
         for j in range(r.shape[1]):
-            if np.array_equal(r[i][j], wm[i][j]):
-                matches += 1
+            for n in range(r.shape[2]):
+                if r[i][j][n] == wm[i][j][n]:
+                    matches += 1
 
-    return matches/(r.shape[0]*r.shape[1])
+    return matches/(r.shape[0]*r.shape[1]*r.shape[2])
