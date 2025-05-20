@@ -16,8 +16,8 @@ def detect_tampering(img_name: str, og_name: str):
     og_points, alt_points, matches = get_matches(kp, desc, og_kp, og_desc)
     
     H, _ = cv2.findHomography(og_points, alt_points, cv2.RANSAC)
+    
     if check_resize(H) or check_rotate(H) or check_crop(H):
-        print("Tampering detected")
         name = show_discrepancies(og_img, og_kp, grey_img, kp, matches, img_name)
         return True, name
     return False, None
