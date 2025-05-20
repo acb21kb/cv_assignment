@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import math
 import os
+
 import watermark_embed as embed
 import watermark_recover as recover
 
@@ -9,18 +10,23 @@ import watermark_recover as recover
 
 PATH = os.path.dirname(os.path.realpath(__file__))
 
-def detect_tampering(img_name: str):
+def detect_tampering(img_name: str, og_name: str) -> bool:
     img = cv2.imread(img_name)
     kp, desc = get_keypoints(img)
 
-    _, og_kp, og_desc = get_original_img(img_name)
+    _, og_kp, og_desc = get_original_img(og_name)
 
     og_points, alt_points = get_matches(kp, desc, og_kp, og_desc)
     
+    watermarks_recovered, is_matching  = recover.recover_watermark(img_name, og_name, False)
+    is_matching = np.array(is_matching)
+    print(np.mean(is_matching))
+
     H, _ = cv2.findHomography(og_points, alt_points, cv2.RANSAC)
     if check_resize(H) or check_rotate(H) or check_crop(H):
         print("Tampering detected")
         return True
+    return False
 
 def get_matches(kp, desc, og_kp, og_desc):
     bf = cv2.BFMatcher()
@@ -108,13 +114,6 @@ def get_original_img(img_name: str):
     """
     Find corresponding original image and return keypoints and feature descriptors.
     """
-    if img_name.__contains__("seal"):
-        name = "seal"
-    elif img_name.__contains__('flower'):
-        name = "flower"
-    else:
-        name = "dashboard"
-    
-    img = cv2.imread(PATH+"/embedded/wm_img_"+name+".png")
+    img = cv2.imread(img_name)
     kp, desc = get_keypoints(img)
     return img, kp, desc

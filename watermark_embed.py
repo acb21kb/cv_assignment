@@ -26,7 +26,7 @@ def embed_watermark(wm_name: str, img_name: str, display_drastic: int) -> str:
 
     # Set result image filepaths
     result, result_drastic = get_img_name(img_name)
-    store_in_csv(result, wm_name)
+    store_in_csv(img_name, result, wm_name)
     
     # Embed watermark at each keypoint
     for k in range(len(kp)):
@@ -122,16 +122,12 @@ def get_img_name(img_name: str) -> tuple[str, str]:
     """
     Set filepaths to save resulting images at.
     """
-    name = ""
-    if img_name.__contains__("seal"):
-        name = "seal"
-    elif img_name.__contains__('flower'):
-        name = "flower"
-    else:
-        name = "dashboard"
+    path = PATH.replace("\\", "/")
+    name = img_name.replace(path, "").replace("cv_assignment","")
+    name = name.replace("/images/", "").replace(".png", "")
     
     result = "cv_assignment/embedded/wm_img_"+name
-    path = PATH.replace("\\", "/").replace("cv_assignment", "")
+    path = path.replace("cv_assignment", "")
     
     counter = 1
     while os.path.exists(path+result+".png"):
@@ -142,15 +138,17 @@ def get_img_name(img_name: str) -> tuple[str, str]:
     drastic = result.replace("embedded", "drastic")
     return result+".png", drastic+"_drastic.png"
 
-def store_in_csv(img_name, watermark):
+def store_in_csv(og_img, img_name, watermark):
     """
     Store resulting image and watermark size used in csv file.
     """
     wm_size = get_watermark_size(watermark)
-    img = img_name.replace("cv_assignment/", "")
+    img = img_name.split("cv_assignment/")
+    og = og_img.split("cv_assignment/")
+
     with open(PATH+"/watermarks/img_to_wm.csv", "a", newline="") as f:
         w = csv.writer(f)
-        w.writerow([img, wm_size])
+        w.writerow([img[-1], wm_size, og[-1]])
 
 def get_watermark_size(wm_file: str):
     """

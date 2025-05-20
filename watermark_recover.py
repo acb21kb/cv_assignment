@@ -2,18 +2,22 @@ import cv2
 import numpy as np
 import os
 import pandas as pd
+
 import watermark_embed as embed
 
 PATH = os.path.dirname(os.path.realpath(__file__))
 
-def recover_watermark(img_name: str) -> str | None:
+def recover_watermark(img_name: str, return_img: bool = True):
     """
     Recover watermark from image.
     """
     # Check all keypoints for changes in shape of watermark (watermark is unknown)
     img = cv2.imread(img_name)
     kp, desc = embed.get_kp(img)
-    og_kp, og_pts, og_desc, og_img = get_og_kp(img_name)
+
+    og_name = get_original_img(img_name)
+    og_img = cv2.imread(og_name)
+    og_kp, og_pts, og_desc = get_og_kp(og_img)
 
     all_diffs = []
     found_wm = []
@@ -34,29 +38,22 @@ def recover_watermark(img_name: str) -> str | None:
     recovery_match = np.mean(found_wm, axis=0)
 
     # Give leeway for watermark overlap
-    if recovery_match > 0.5:
+    if recovery_match > 0.5:        
         recovery *= 255 # Will output inverted to original watermark
-        save_at = save_recovered(img_name)
-        cv2.imwrite(save_at, recovery)
-        return save_at
+        if return_img:
+            save_at = save_recovered(img_name)
+            cv2.imwrite(save_at, recovery)
+            return True, save_at, recovery_match
     else:
-        return None
+        return False, all_diffs, found_wm
 
-def get_og_kp(img_name: str) -> tuple[list, list]:
+def get_og_kp(og_img):
     """
     Return keypoints from corresponding original image.
     """
-    if img_name.__contains__("seal"):
-        name = "seal"
-    elif img_name.__contains__('flower'):
-        name = "flower"
-    else:
-        name = "dashboard"
-    
-    og_img = cv2.imread(PATH+"/images/"+name+".png")
     kp, desc = embed.get_kp(og_img)
     pts = [(int(p.pt[0]), int(p.pt[1])) for p in kp]
-    return kp, pts, desc, og_img
+    return kp, pts, desc
 
 def find_same_kp(kp: list, og_kp: list) -> list:
     """
@@ -94,16 +91,13 @@ def save_recovered(img_name: str) -> str:
     """
     Save recovered image without overlapping other files.
     """
-    name = ""
-    if img_name.__contains__("seal"):
-        name = "seal"
-    elif img_name.__contains__('flower'):
-        name = "flower"
-    else:
-        name = "dashboard"
+    path = PATH.replace("\\", "/")
+    name = img_name.replace(path, "")
+    name = name.replace("/embedded/wm_img_", "").replace(".png", "")
+
     result = "cv_assignment/recovered/from_"+name
-    path = PATH.replace("\\", "/").replace("cv_assignment", "")
-    
+    path = path.replace("cv_assignment", "")
+
     counter = 1
     while os.path.exists(path+result+".png"):
         result = result.replace(str(counter-1), "")
@@ -111,6 +105,19 @@ def save_recovered(img_name: str) -> str:
         counter += 1
 
     return result+".png"
+
+def get_original_img(img_name: str):
+    """
+    Return corresponding original image filename.
+    """
+    img = img_name.split("/cv_assignment/")
+    img = img[-1]
+    # Find corresponding watermark size stored in csv by image name
+    df = pd.read_csv(PATH+"/watermarks/img_to_wm.csv")
+    match = df[df['Image']==img]
+    if not match.empty:
+        og_img = str(match['Original'].iloc[0])
+        return "cv_assignment/"+og_img
 
 def get_watermark_shape(img_name: str) -> int:
     """
