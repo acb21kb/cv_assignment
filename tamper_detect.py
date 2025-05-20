@@ -3,30 +3,33 @@ import numpy as np
 import math
 import os
 
-import watermark_embed as embed
-import watermark_recover as recover
-
 # tampering detected -> return YES and display keypoints that do not match
 
 PATH = os.path.dirname(os.path.realpath(__file__))
 
-def detect_tampering(img_name: str, og_name: str) -> bool:
+def detect_tampering(img_name: str, og_name: str):
     img = cv2.imread(img_name)
-    kp, desc = get_keypoints(img)
+    kp, desc, grey_img = get_keypoints(img)
 
-    _, og_kp, og_desc = get_original_img(og_name)
+    og_img, og_kp, og_desc = get_original_img(og_name)
 
-    og_points, alt_points = get_matches(kp, desc, og_kp, og_desc)
+    og_points, alt_points, matches = get_matches(kp, desc, og_kp, og_desc)
     
-    watermarks_recovered, is_matching  = recover.recover_watermark(img_name, og_name, False)
-    is_matching = np.array(is_matching)
-    print(np.mean(is_matching))
-
     H, _ = cv2.findHomography(og_points, alt_points, cv2.RANSAC)
     if check_resize(H) or check_rotate(H) or check_crop(H):
         print("Tampering detected")
-        return True
-    return False
+        name = show_discrepancies(og_img, og_kp, grey_img, kp, matches, img_name)
+        return True, name
+    return False, None
+
+def show_discrepancies(og_img, og_kp, alt_img, alt_kp, matches, img_name):
+    kp_matches = cv2.drawMatches(og_img, og_kp, alt_img, alt_kp, matches,
+                                 cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+                                 singlePointColor=(255,0,0), matchColor=(0,255,0))
+    
+    name = get_img_name(img_name)
+    cv2.imwrite(name, kp_matches)
+    return name
 
 def get_matches(kp, desc, og_kp, og_desc):
     bf = cv2.BFMatcher()
@@ -40,7 +43,7 @@ def get_matches(kp, desc, og_kp, og_desc):
 
     og_points = np.array([og_kp[n.queryIdx].pt for n in matches]).reshape(-1,1,2)
     alt_points = np.array([kp[n.trainIdx].pt for n in matches]).reshape(-1,1,2)
-    return og_points, alt_points
+    return og_points, alt_points, matches
 
 def check_crop(h):
     """
@@ -108,12 +111,31 @@ def get_keypoints(img) -> tuple[list,list]:
     kp, desc = sift.detectAndCompute(grey, None)
 
     # Returns keypoints and feature descriptions
-    return kp, desc
+    return kp, desc, grey
 
 def get_original_img(img_name: str):
     """
     Find corresponding original image and return keypoints and feature descriptors.
     """
     img = cv2.imread(img_name)
-    kp, desc = get_keypoints(img)
-    return img, kp, desc
+    kp, desc, grey = get_keypoints(img)
+    return grey, kp, desc
+
+def get_img_name(img_name: str) -> str:
+    """
+    Set filepaths to save resulting images at.
+    """
+    path = PATH.replace("\\", "/")
+    name = img_name.replace(path, "").replace("cv_assignment","")
+    name = name.replace("/tampered/", "").replace(".png", "")
+    
+    result = "cv_assignment/detect_matches/"+name
+    path = path.replace("cv_assignment", "")
+ 
+    counter = 1
+    while os.path.exists(path+result+"_diff.png"):
+        result = result.replace(str(counter-1), "")
+        result += str(counter)
+        counter += 1
+
+    return result+"_diff.png"

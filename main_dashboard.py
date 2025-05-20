@@ -144,7 +144,7 @@ class GUI:
         is_auth.text = text
         is_auth.update()
 
-    def select_tamper(self, is_auth: tk.Label):
+    def select_tamper(self, display_res: tk.Label, is_auth: tk.Label):
         """
         Select file to detect tampering.
         """
@@ -157,27 +157,26 @@ class GUI:
                     initialdir=path, filetypes=ftypes)
         file2 = openfile.askopenfilename(title='Select original of image',
                     initialdir=path2, filetypes=ftypes)
-        self.check_tamper(is_auth, file, file2)
+        self.check_tamper(display_res, is_auth, file, file2)
 
-    def check_tamper(self, is_auth: tk.Label, img: str, og_img:str):
+    def check_tamper(self, display_res: tk.Label, is_auth: tk.Label, img: str, og_img:str):
         """
         Check if image was tampered with.
         """
-        tampered = detect.detect_tampering(img, og_img)
+        tampered, result = detect.detect_tampering(img, og_img)
 
-        if tampered:
+        if tampered and result is not None:
+            result = self.resize(Image.open(result))
+            display_res.configure(image=result)
+            display_res.image = result
+            display_res.update()
             text = "YES - Tampering probable. Watermark could not be authenticated."
         else:
-            # recovered = ImageTk.PhotoImage(Image.open(recovered_wm).resize((50,50)))
             text = "NO - Tampering unlikely. Watermark appears consistent."
-        
-        # display_recover.configure(image=recovered)
-        # display_recover.image = recovered
-        # display_recover.update()
+            
         is_auth.configure(text=text)
         is_auth.text = text
         is_auth.update()
-        return
 
     def resize(self, img):
         w, h = img.size
@@ -233,30 +232,38 @@ class GUI:
         frame_r = tk.Frame(main_frame)
         frame_r.grid(row=0, column=2)
 
+        result_title = tk.Label(frame_r, text="Results from functions:",
+                               font=("Helvetica",12,"bold"))
+        result_title.grid(row=0, column=0)
+
         display_result = tk.Label(frame_r)
-        display_result.grid(row=0, column=0)
+        display_result.grid(row=1, column=0)
         is_auth = tk.Label(frame_r)
-        is_auth.grid(row=1, column=0)
+        is_auth.grid(row=2, column=0)
 
         # Middle frame for image selection buttons
         frame_m = tk.Frame(main_frame)
         frame_m.grid(row=0, column=1)
+
+        function_title = tk.Label(frame_m, text="Run functions:",
+                               font=("Helvetica",12,"bold"))
+        function_title.grid(row=0, column=0)
         
         embed_watermark = ttk.Button(frame_m, text='Run embed watermark',
                     command=lambda: self.run_embed(display_result, is_auth, do_drastic.get()))
-        embed_watermark.grid(row=0, column=0)
+        embed_watermark.grid(row=1, column=0)
 
         do_drastic = tk.IntVar()
         display_drastic = tk.Checkbutton(frame_m, text='Display with visible changes?',
                     variable=do_drastic)
-        display_drastic.grid(row=1, column=0, pady=(1,10))
+        display_drastic.grid(row=2, column=0, pady=(1,10))
 
         recover_img = ttk.Button(frame_m, text='Run recover watermark',
                     command=lambda: self.select_recover(display_result, is_auth))
         recover_img.grid(row=3, column=0)
 
         check_tamper = ttk.Button(frame_m, text='Run tamper detection',
-                    command=lambda: self.select_tamper(is_auth))
+                    command=lambda: self.select_tamper(display_result, is_auth))
         check_tamper.grid(row=4, column=0, pady=10)
         
 
