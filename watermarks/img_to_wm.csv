@@ -1,4 +1,5 @@
-Image,Size
-embedded/wm_img_dashboard.png,3x3
-embedded/wm_img_flower.png,7x7
-embedded/wm_img_seal.png,9x9
+Image,Size,Original
+embedded/wm_img_dashboard.png,3x3,images/dashboard.png
+embedded/wm_img_dashboard1.png,5x5,images/dashboard.png
+embedded/wm_img_flower.png,7x7,images/flower.png
+embedded/wm_img_seal.png,9x9,images/seal.png
